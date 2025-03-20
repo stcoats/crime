@@ -21,10 +21,11 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 def serve_index():
     return FileResponse("app/static/index.html")
 
-# Make sure to use the correct path for your DuckDB file
+# Use the direct path for the DuckDB database
 def get_connection():
     return duckdb.connect('/tmp/forensic.duckdb')
 
+# Initialize the connection once
 con = get_connection()
 
 @app.get("/data")
@@ -41,11 +42,12 @@ def get_paginated_data(
     if direction not in ["asc", "desc"]:
         direction = "asc"
 
-    text_clean = text.strip().strip('"“”\'')  # Remove quotes/smartquotes
+    text_clean = text.strip().strip('"“”\'')  # Clean up any quotes
     where_clause = ""
 
     if text_clean:
-        phrase = re.sub(r'\s+', r'\\s+', text_clean)  # Convert spaces to regex
+        # Prepare the text for regex
+        phrase = re.sub(r'\s+', r'\\s+', text_clean)
         pattern = f'(^|\\W){phrase}(\\W|$)'
 
         where_clause = f"""
@@ -55,14 +57,14 @@ def get_paginated_data(
 
     offset = (page - 1) * size
 
-    # Count the total number of rows matching the search criteria
+    # Query to get the total count of rows
     count_query = f"SELECT COUNT(*) FROM data {where_clause}"
     try:
         total = con.execute(count_query).fetchone()[0]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Count query error: {e}")
 
-    # Get the data for the current page
+    # Query to get the data for the current page
     query = f"""
     SELECT ID, playlist, title, transcript, pos_tags, audio
     FROM data
@@ -79,8 +81,8 @@ def get_paginated_data(
 
 @app.get("/audio/{id}")
 def get_audio(id: str):
-    # Retrieve the audio URL from the 'audio' column
+    # Fetch audio URL from the database
     row = con.execute("SELECT audio FROM data WHERE ID = ?", [id]).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Audio not found")
-    return {"audio_url": row[0]}  # Return the URL, not the file
+    return {"audio_url": row[0]}  # Return the audio URL
