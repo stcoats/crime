@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>YCSEP DB</title>
+  <title>Forensic DB</title>
   <link 
     rel="stylesheet" 
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css"
@@ -17,16 +17,16 @@
 </head>
 <body class="container">
   <div class="d-flex justify-content-between align-items-end mb-3">
-    <h1 class="h3">YCSEP DB Results</h1>
+    <h1 class="h3">Forensic DB Results</h1>
     <small class="text-muted text-end" style="max-width: 60%;">
-      This database contains segments from the <i>YouTube Corpus of Singapore English Podcasts</i>. You can search by text or POS tags, sort by any column, and play corresponding audio. For more information about the database, see Coats, Steven, Alessandro Basile, Cameron Morin, and Robert Fuchs. (In review). The YouTube Corpus of Singapore English Podcasts.  
+      This database contains transcript segments with associated audio from forensic court recordings. You can search by text or POS tags, sort by any column, and play the corresponding audio URL.
     </small>
   </div>
 
   <div class="row mb-3">
     <div class="col-auto">
       <label for="searchInput" class="form-label">Search text:</label>
-      <input type="text" id="searchInput" class="form-control" placeholder='Search text or POS tags (e.g. can can or "pos tag")'>
+      <input type="text" id="searchInput" class="form-control" placeholder='Search text or POS tags'>
     </div>
     <div class="col-auto align-self-end">
       <button class="btn btn-primary" onclick="doSearch()">Search</button>
@@ -36,14 +36,11 @@
   <table class="table table-bordered table-striped table-hover table-sm" id="dataTable">
     <thead class="table-dark">
       <tr>
-        <th onclick="sortBy('id')">ID<span class="sort-indicator">▴▾</span></th>
-        <th onclick="sortBy('channel')">Channel<span class="sort-indicator">▴▾</span></th>
-        <th onclick="sortBy('video_id')">Video ID<span class="sort-indicator">▴▾</span></th>
-        <th onclick="sortBy('speaker')">Speaker<span class="sort-indicator">▴▾</span></th>
-        <th onclick="sortBy('start_time')">Start<span class="sort-indicator">▴▾</span></th>
-        <th onclick="sortBy('end_time')">End<span class="sort-indicator">▴▾</span></th>
+        <th onclick="sortBy('ID')">ID<span class="sort-indicator">▴▾</span></th>
+        <th onclick="sortBy('playlist')">Playlist<span class="sort-indicator">▴▾</span></th>
+        <th onclick="sortBy('title')">Title<span class="sort-indicator">▴▾</span></th>
         <th>Audio</th>
-        <th onclick="sortBy('text')">Text<span class="sort-indicator">▴▾</span></th>
+        <th onclick="sortBy('transcript')">Transcript<span class="sort-indicator">▴▾</span></th>
         <th onclick="sortBy('pos_tags')">POS<span class="sort-indicator">▴▾</span></th>
       </tr>
     </thead>
@@ -56,7 +53,7 @@
     let currentPage = 1;
     let totalRows = 0;
     let pageSize = 100;
-    let currentSort = 'id';
+    let currentSort = 'ID';
     let currentDirection = 'asc';
 
     function doSearch() {
@@ -101,21 +98,17 @@
       tbody.innerHTML = "";
 
       rows.forEach(r => {
-        const audioUrl = `/audio/${encodeURIComponent(r.id)}`;
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${r.id}</td>
-          <td>${r.channel}</td>
-          <td>${r.video_id}</td>
-          <td>${r.speaker}</td>
-          <td>${r.start_time}</td>
-          <td>${r.end_time}</td>
+          <td>${r.ID}</td>
+          <td>${r.playlist}</td>
+          <td>${r.title}</td>
           <td class="audio-cell">
             <audio controls preload="none">
-              <source src="${audioUrl}" type="audio/mpeg">
+              <source src="${r.audio}" type="audio/mpeg">
             </audio>
           </td>
-          <td>${r.text}</td>
+          <td>${r.transcript}</td>
           <td>${r.pos_tags || ""}</td>
         `;
         tbody.appendChild(tr);
