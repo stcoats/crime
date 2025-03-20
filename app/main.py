@@ -2,7 +2,7 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.duckdb_utils import get_connection
+import duckdb
 import pandas as pd
 import re
 
@@ -21,9 +21,13 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 def serve_index():
     return FileResponse("app/static/index.html")
 
+# Make sure to use the correct path for your DuckDB file
+def get_connection():
+    return duckdb.connect('/tmp/forensic.duckdb')
+
 con = get_connection()
 
-@app.get("/")
+@app.get("/data")
 def get_paginated_data(
     page: int = Query(1, ge=1),
     size: int = Query(100, ge=1, le=1000),
@@ -51,12 +55,14 @@ def get_paginated_data(
 
     offset = (page - 1) * size
 
+    # Count the total number of rows matching the search criteria
     count_query = f"SELECT COUNT(*) FROM data {where_clause}"
     try:
         total = con.execute(count_query).fetchone()[0]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Count query error: {e}")
 
+    # Get the data for the current page
     query = f"""
     SELECT ID, playlist, title, transcript, pos_tags, audio
     FROM data
@@ -73,6 +79,7 @@ def get_paginated_data(
 
 @app.get("/audio/{id}")
 def get_audio(id: str):
+    # Retrieve the audio URL from the 'audio' column
     row = con.execute("SELECT audio FROM data WHERE ID = ?", [id]).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Audio not found")
