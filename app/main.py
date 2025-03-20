@@ -23,7 +23,7 @@ def serve_index():
 
 con = get_connection()
 
-@app.get("/data")
+@app.get("/")
 def get_paginated_data(
     page: int = Query(1, ge=1),
     size: int = Query(100, ge=1, le=1000),
