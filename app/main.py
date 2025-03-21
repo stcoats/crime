@@ -36,7 +36,7 @@ def get_paginated_data(
     sort: str = Query("ID"),
     direction: str = Query("asc")
 ):
-    allowed_cols = ["ID", "playlist", "title", "transcript", "pos_tags", "audio"]
+    allowed_cols = ["ID", "playlist", "title", "transcript", "pos_tags", "audio_url"]  # Adjusted column name
     if sort not in allowed_cols:
         sort = "ID"
     if direction not in ["asc", "desc"]:
@@ -66,7 +66,7 @@ def get_paginated_data(
 
     # Query to get the data for the current page
     query = f"""
-    SELECT ID, playlist, title, transcript, pos_tags, audio
+    SELECT ID, playlist, title, transcript, pos_tags, audio_url  # Adjusted column name
     FROM forensic_data
     {where_clause}
     ORDER BY {sort} {direction}
@@ -82,7 +82,7 @@ def get_paginated_data(
 @app.get("/audio/{id}")
 def get_audio(id: str):
     # Fetch audio URL from the database
-    row = con.execute("SELECT audio FROM forensic_data WHERE ID = ?", [id]).fetchone()
+    row = con.execute("SELECT audio_url FROM forensic_data WHERE ID = ?", [id]).fetchone()  # Adjusted
     if not row:
         raise HTTPException(status_code=404, detail="Audio not found")
     return {"audio_url": row[0]}  # Return the audio URL
