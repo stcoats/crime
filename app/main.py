@@ -58,7 +58,7 @@ def get_paginated_data(
     offset = (page - 1) * size
 
     # Query to get the total count of rows
-    count_query = f"SELECT COUNT(*) FROM data {where_clause}"
+    count_query = f"SELECT COUNT(*) FROM forensic_data {where_clause}"
     try:
         total = con.execute(count_query).fetchone()[0]
     except Exception as e:
@@ -67,7 +67,7 @@ def get_paginated_data(
     # Query to get the data for the current page
     query = f"""
     SELECT ID, playlist, title, transcript, pos_tags, audio
-    FROM data
+    FROM forensic_data
     {where_clause}
     ORDER BY {sort} {direction}
     LIMIT {size} OFFSET {offset}
@@ -82,7 +82,7 @@ def get_paginated_data(
 @app.get("/audio/{id}")
 def get_audio(id: str):
     # Fetch audio URL from the database
-    row = con.execute("SELECT audio FROM data WHERE ID = ?", [id]).fetchone()
+    row = con.execute("SELECT audio FROM forensic_data WHERE ID = ?", [id]).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Audio not found")
     return {"audio_url": row[0]}  # Return the audio URL
