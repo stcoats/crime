@@ -23,7 +23,7 @@ def serve_index():
 
 # Use the direct path for the DuckDB database
 def get_connection():
-    return duckdb.connect('/mnt/data/forensic.duckdb', read_only=False)
+    return duckdb.connect('/mnt/data/forensic.duckdb', read_only=True)
 
 # Initialize the connection once
 con = get_connection()
