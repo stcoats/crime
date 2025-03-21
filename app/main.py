@@ -21,7 +21,7 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 def serve_index():
     return FileResponse("app/static/index.html")
 
-# Connect to DuckDB (read-only mode for concurrency safety)
+# Use the correct path and read-only mode
 def get_connection():
     return duckdb.connect('/mnt/data/forensic.duckdb', read_only=True)
 
@@ -54,20 +54,20 @@ def get_paginated_data(
 
     offset = (page - 1) * size
 
-    count_query = f"SELECT COUNT(*) FROM forensic_data {where_clause}"
     try:
+        count_query = f"SELECT COUNT(*) FROM forensic_data {where_clause}"
         total = con.execute(count_query).fetchone()[0]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Count query error: {e}")
 
-    query = f"""
-    SELECT ID, playlist, title, `timing (sec.)`, transcript, pos_tags, audio
-    FROM forensic_data
-    {where_clause}
-    ORDER BY {sort} {direction}
-    LIMIT {size} OFFSET {offset}
-    """
     try:
+        query = f"""
+        SELECT ID, playlist, title, `timing (sec.)`, transcript, pos_tags, audio
+        FROM forensic_data
+        {where_clause}
+        ORDER BY {sort} {direction}
+        LIMIT {size} OFFSET {offset}
+        """
         df = con.execute(query).df()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Data query error: {e}")
@@ -76,7 +76,10 @@ def get_paginated_data(
 
 @app.get("/audio/{id}")
 def get_audio(id: str):
-    row = con.execute("SELECT audio FROM forensic_data WHERE ID = ?", [id]).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Audio not found")
-    return {"audio_url": row[0]}
+    try:
+        row = con.execute("SELECT audio FROM forensic_data WHERE ID = ?", [id]).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Audio not found")
+        return {"audio_url": row[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Audio query error: {e}")
