@@ -21,11 +21,10 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 def serve_index():
     return FileResponse("app/static/index.html")
 
-# Use the direct path for the DuckDB database
+# Connect to DuckDB (read-only mode for concurrency safety)
 def get_connection():
     return duckdb.connect('/mnt/data/forensic.duckdb', read_only=True)
 
-# Initialize the connection once
 con = get_connection()
 
 @app.get("/data")
@@ -33,23 +32,21 @@ def get_paginated_data(
     page: int = Query(1, ge=1),
     size: int = Query(100, ge=1, le=1000),
     text: str = Query(""),
-    sort: str = Query("id"),
+    sort: str = Query("ID"),
     direction: str = Query("asc")
 ):
-    allowed_cols = ["ID", "playlist", "title", "transcript", "pos_tags", "audio"]  # Adjusted column name
+    allowed_cols = ["ID", "playlist", "title", "transcript", "pos_tags", "audio", "timing (sec.)"]
     if sort not in allowed_cols:
-        sort = "id"
+        sort = "ID"
     if direction not in ["asc", "desc"]:
         direction = "asc"
 
-    text_clean = text.strip().strip('"“”\'')  # Clean up any quotes
+    text_clean = text.strip().strip('"“”\'')
     where_clause = ""
 
     if text_clean:
-        # Prepare the text for regex
         phrase = re.sub(r'\s+', r'\\s+', text_clean)
         pattern = f'(^|\\W){phrase}(\\W|$)'
-
         where_clause = f"""
         WHERE regexp_matches(transcript, '{pattern}', 'i')
            OR regexp_matches(pos_tags, '{pattern}', 'i')
@@ -57,16 +54,14 @@ def get_paginated_data(
 
     offset = (page - 1) * size
 
-    # Query to get the total count of rows
     count_query = f"SELECT COUNT(*) FROM forensic_data {where_clause}"
     try:
         total = con.execute(count_query).fetchone()[0]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Count query error: {e}")
 
-    # Query to get the data for the current page
     query = f"""
-    SELECT id, playlist, title, transcript, pos_tags, audio_url
+    SELECT ID, playlist, title, `timing (sec.)`, transcript, pos_tags, audio
     FROM forensic_data
     {where_clause}
     ORDER BY {sort} {direction}
@@ -81,8 +76,7 @@ def get_paginated_data(
 
 @app.get("/audio/{id}")
 def get_audio(id: str):
-    # Fetch audio URL from the database
     row = con.execute("SELECT audio FROM forensic_data WHERE ID = ?", [id]).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Audio not found")
-    return {"audio_url": row[0]}  # Return the audio URL
+    return {"audio_url": row[0]}
