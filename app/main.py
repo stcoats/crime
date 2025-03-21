@@ -34,7 +34,7 @@ def get_paginated_data(
     sort: str = Query("ID"),
     direction: str = Query("asc")
 ):
-    allowed_cols = ["ID", "playlist", "title", "timing (sec.)", "transcript", "pos_tags", "audio"]
+    allowed_cols = ["ID", "playlist", "title", "timing", "transcript", "pos_tags", "audio"]
     if sort not in allowed_cols:
         sort = "ID"
     if direction not in ["asc", "desc"]:
@@ -58,7 +58,7 @@ def get_paginated_data(
         total = con.execute(count_query).fetchone()[0]
 
         query = f"""
-        SELECT "ID", "playlist", "title", "timing (sec.)", "transcript", "pos_tags", "audio"
+        SELECT "ID", "playlist", "title", "timing", "transcript", "pos_tags", "audio"
         FROM "forensic_data"
         {where_clause}
         ORDER BY "{sort}" {direction}
