@@ -21,7 +21,6 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 def serve_index():
     return FileResponse("app/static/index.html")
 
-# Use the correct path and read-only mode
 def get_connection():
     return duckdb.connect('/mnt/data/forensic.duckdb', read_only=True)
 
@@ -35,7 +34,7 @@ def get_paginated_data(
     sort: str = Query("ID"),
     direction: str = Query("asc")
 ):
-    allowed_cols = ["ID", "playlist", "title", "transcript", "pos_tags", "audio", "timing (sec.)"]
+    allowed_cols = ["ID", "playlist", "title", "timing (sec.)", "transcript", "pos_tags", "audio"]
     if sort not in allowed_cols:
         sort = "ID"
     if direction not in ["asc", "desc"]:
@@ -57,18 +56,16 @@ def get_paginated_data(
     try:
         count_query = f"SELECT COUNT(*) FROM forensic_data {where_clause}"
         total = con.execute(count_query).fetchone()[0]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Count query error: {e}")
 
-    try:
         query = f"""
-        SELECT ID, playlist, title, `timing (sec.)`, transcript, pos_tags, audio
+        SELECT ID, playlist, title, "timing (sec.)", transcript, pos_tags, audio
         FROM forensic_data
         {where_clause}
-        ORDER BY {sort} {direction}
+        ORDER BY "{sort}" {direction}
         LIMIT {size} OFFSET {offset}
         """
         df = con.execute(query).df()
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Data query error: {e}")
 
@@ -82,4 +79,4 @@ def get_audio(id: str):
             raise HTTPException(status_code=404, detail="Audio not found")
         return {"audio_url": row[0]}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Audio query error: {e}")
+        raise HTTPException(status_code=500, detail=f"Audio lookup error: {e}")
