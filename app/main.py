@@ -47,21 +47,21 @@ def get_paginated_data(
         phrase = re.sub(r'\s+', r'\\s+', text_clean)
         pattern = f'(^|\\W){phrase}(\\W|$)'
         where_clause = f"""
-        WHERE regexp_matches("transcript", '{pattern}', 'i')
-           OR regexp_matches("pos_tags", '{pattern}', 'i')
+        WHERE regexp_matches(transcript, '{pattern}', 'i')
+           OR regexp_matches(pos_tags, '{pattern}', 'i')
         """
 
     offset = (page - 1) * size
 
     try:
-        count_query = f'SELECT COUNT(*) FROM "forensic_data" {where_clause}'
+        count_query = f"SELECT COUNT(*) FROM forensic_data {where_clause}"
         total = con.execute(count_query).fetchone()[0]
 
         query = f"""
-        SELECT "ID", "playlist", "title", "timing", "transcript", "pos_tags", "audio"
-        FROM "forensic_data"
+        SELECT ID, playlist, title, timing, transcript, pos_tags, audio
+        FROM forensic_data
         {where_clause}
-        ORDER BY "{sort}" {direction}
+        ORDER BY {sort} {direction}
         LIMIT {size} OFFSET {offset}
         """
         df = con.execute(query).df()
@@ -74,7 +74,7 @@ def get_paginated_data(
 @app.get("/audio/{id}")
 def get_audio(id: str):
     try:
-        row = con.execute('SELECT "audio" FROM "forensic_data" WHERE "ID" = ?', [id]).fetchone()
+        row = con.execute("SELECT audio FROM forensic_data WHERE ID = ?", [id]).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Audio not found")
         return {"audio_url": row[0]}
