@@ -17,17 +17,14 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-@app.get("/")
-def serve_index():
-    return FileResponse("app/static/index.html")
-
-# Initialize the connection
-
-
 def get_connection():
     return sqlite3.connect('/mnt/data/forensic.sqlite', check_same_thread=False)
 
 con = get_connection()
+
+@app.get("/")
+def serve_index():
+    return FileResponse("app/static/index.html")
 
 @app.get("/data")
 def get_paginated_data(
@@ -43,34 +40,33 @@ def get_paginated_data(
     if direction not in ["asc", "desc"]:
         direction = "asc"
 
-    text_clean = text.strip().strip('"“”\'')  # remove quotes/smartquotes
+    text_clean = text.strip().strip('"“”\'')
     where_clause = ""
 
     if text_clean:
-        phrase = re.sub(r'\s+', ' ', text_clean)
-        pattern = f'"{phrase}"'
+        # FTS5 MATCH clause — just space-separated, not quoted!
+        match_expr = re.sub(r'\s+', ' ', text_clean)
         where_clause = f"""
         WHERE rowid IN (
             SELECT rowid FROM forensic_data_fts
-            WHERE forensic_data_fts MATCH {pattern!r}
+            WHERE forensic_data_fts MATCH {repr(match_expr)}
         )
         """
 
-
     offset = (page - 1) * size
 
-    count_query = f"SELECT COUNT(*) FROM forensic_data {where_clause}"
     try:
+        count_query = f"SELECT COUNT(*) FROM forensic_data {where_clause}"
         total = con.execute(count_query).fetchone()[0]
 
         query = f"""
         SELECT ID, playlist, title, timing, transcript, pos_tags, audio
         FROM forensic_data
         {where_clause}
-        ORDER BY {sort} {direction}
+        ORDER BY "{sort}" {direction}
         LIMIT {size} OFFSET {offset}
         """
-        df = con.execute(query).df()
+        df = pd.read_sql_query(query, con)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Data query error: {e}")
