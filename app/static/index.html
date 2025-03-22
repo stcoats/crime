@@ -59,6 +59,18 @@ let pageSize = 100;
 let currentSort = 'id';
 let currentDirection = 'asc';
 
+function extractTokens(query) {
+  const quoted = /^["'].*["']$/.test(query);
+  const cleaned = query.replace(/^["']|["']$/g, '');
+  return quoted ? [cleaned.trim()] : cleaned.split(/\s+/).filter(Boolean);
+}
+
+function highlightMatches(text, tokens) {
+  if (!text || tokens.length === 0) return text;
+  const pattern = new RegExp(`\\b(${tokens.map(t => t.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})\\b`, 'gi');
+  return text.replace(pattern, match => `<span style="color:red; font-weight:bold;">${match}</span>`);
+}
+
 function doSearch() {
   currentPage = 1;
   loadData();
@@ -83,48 +95,27 @@ function goPage(page) {
   loadData();
 }
 
-function highlightMatches(text, query) {
-  if (!query || !text) return text;
-  const quoted = /^["'].*["']$/.test(query);
-  const cleanQuery = query.replace(/^["']|["']$/g, '');
-  if (quoted) {
-    const phrase = cleanQuery.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-    const pattern = new RegExp(phrase, 'gi');
-    return text.replace(pattern, match =>
-      `<span style="color:red; font-weight:bold;">${match}</span>`
-    );
-  } else {
-    const words = cleanQuery.split(/\s+/).filter(Boolean);
-    if (words.length === 0) return text;
-    const pattern = new RegExp(`\\b(${words.map(w => w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})\\b`, 'gi');
-    return text.replace(pattern, match =>
-      `<span style="color:red; font-weight:bold;">${match}</span>`
-    );
-  }
-}
-
 function loadData() {
   const inputEl = document.getElementById('searchInput');
   if (!inputEl) return;
   const textVal = inputEl.value.trim();
+  const tokens = extractTokens(textVal);
   const url = `/data?page=${currentPage}&size=${pageSize}&text=${encodeURIComponent(textVal)}&sort=${currentSort}&direction=${currentDirection}`;
 
   fetch(url)
     .then(res => res.json())
     .then(json => {
       totalRows = json.total;
-      renderTable(json.data, textVal);
+      renderTable(json.data, tokens);
       renderPagination();
       renderHitCount();
     })
     .catch(err => console.error("Error fetching /data:", err));
 }
 
-function renderTable(rows, queryText) {
+function renderTable(rows, tokens) {
   const tbody = document.querySelector("#dataTable tbody");
   tbody.innerHTML = "";
-
-  const cleanQuery = queryText.replace(/^["']|["']$/g, '').split(/\s+/).join(' ');
 
   rows.forEach(r => {
     const tr = document.createElement("tr");
@@ -138,8 +129,8 @@ function renderTable(rows, queryText) {
           <source src="${r.audio}" type="audio/mpeg">
         </audio>
       </td>
-      <td>${highlightMatches(r.transcript, queryText)}</td>
-      <td>${highlightMatches(r.pos_tags, cleanQuery)}</td>
+      <td>${highlightMatches(r.transcript, tokens)}</td>
+      <td>${highlightMatches(r.pos_tags, tokens)}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -187,5 +178,6 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 });
 </script>
+
 </body>
 </html>
