@@ -19,7 +19,7 @@
   <div class="d-flex justify-content-between align-items-end mb-3">
     <h1 class="h3">C.R.I.M.E. DB Results</h1>
     <small class="text-muted text-end" style="max-width: 60%;">
-      This database contains transcript segments with associated audio from the Corpus of Investigative Interviews and Criminal Justice Discourse You can search by text or POS tags, sort by any column, and play the corresponding audio URL.
+      This database contains transcript segments with associated audio from the Corpus of Investigative Interviews and Criminal Justice Discourse. You can search by text or POS tags, sort by any column, and play the corresponding audio URL.
     </small>
   </div>
 
@@ -36,9 +36,10 @@
   <table class="table table-bordered table-striped table-hover table-sm" id="dataTable">
     <thead class="table-dark">
       <tr>
-        <th onclick="sortBy('ID')">ID<span class="sort-indicator">▴▾</span></th>
+        <th onclick="sortBy('id')">ID<span class="sort-indicator">▴▾</span></th>
         <th onclick="sortBy('playlist')">Playlist<span class="sort-indicator">▴▾</span></th>
         <th onclick="sortBy('title')">Title<span class="sort-indicator">▴▾</span></th>
+        <th onclick="sortBy('timing')">Timing<span class="sort-indicator">▴▾</span></th>
         <th>Audio</th>
         <th onclick="sortBy('transcript')">Transcript<span class="sort-indicator">▴▾</span></th>
         <th onclick="sortBy('pos_tags')">POS<span class="sort-indicator">▴▾</span></th>
@@ -53,7 +54,7 @@
     let currentPage = 1;
     let totalRows = 0;
     let pageSize = 100;
-    let currentSort = 'ID';
+    let currentSort = 'id';
     let currentDirection = 'asc';
 
     function doSearch() {
@@ -100,9 +101,10 @@
       rows.forEach(r => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${r.ID}</td>
+          <td>${r.id || r.ID || ""}</td>
           <td>${r.playlist}</td>
           <td>${r.title}</td>
+          <td>${r.timing || ""}</td>
           <td class="audio-cell">
             <audio controls preload="none">
               <source src="${r.audio}" type="audio/mpeg">
@@ -122,20 +124,20 @@
 
       if (currentPage > 1) {
         const btnPrev = document.createElement("button");
-        btnPrev.classList.add("btn","btn-secondary","me-2");
+        btnPrev.classList.add("btn", "btn-secondary", "me-2");
         btnPrev.textContent = "Prev";
         btnPrev.onclick = () => goPage(currentPage - 1);
         container.appendChild(btnPrev);
       }
 
       const pageInfo = document.createElement("span");
-      pageInfo.classList.add("align-self-center","mx-2");
+      pageInfo.classList.add("align-self-center", "mx-2");
       pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
       container.appendChild(pageInfo);
 
       if (currentPage < totalPages) {
         const btnNext = document.createElement("button");
-        btnNext.classList.add("btn","btn-secondary","ms-2");
+        btnNext.classList.add("btn", "btn-secondary", "ms-2");
         btnNext.textContent = "Next";
         btnNext.onclick = () => goPage(currentPage + 1);
         container.appendChild(btnNext);
