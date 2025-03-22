@@ -2,7 +2,7 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-import duckdb
+import sqlite3
 import pandas as pd
 import re
 
@@ -22,8 +22,10 @@ def serve_index():
     return FileResponse("app/static/index.html")
 
 # Initialize the connection
+
+
 def get_connection():
-    return duckdb.connect('/mnt/data/forensic.duckdb', read_only=True)
+    return sqlite3.connect('/mnt/data/forensic.sqlite', check_same_thread=False)
 
 con = get_connection()
 
@@ -45,15 +47,15 @@ def get_paginated_data(
     where_clause = ""
 
     if text_clean:
-        # Convert "can can" => can\s+can, then add word boundaries manually
-        phrase = re.sub(r'\s+', r'\\s+', text_clean)
-        pattern = f'(^|\\W){phrase}(\\W|$)'
-
-        # Add search condition for both text and pos_tags
+        phrase = re.sub(r'\s+', ' ', text_clean)
+        pattern = f'"{phrase}"'
         where_clause = f"""
-        WHERE regexp_matches(transcript, '{pattern}', 'i')
-           OR regexp_matches(pos_tags, '{pattern}', 'i')
+        WHERE rowid IN (
+            SELECT rowid FROM forensic_data_fts
+            WHERE forensic_data_fts MATCH {pattern!r}
+        )
         """
+
 
     offset = (page - 1) * size
 
