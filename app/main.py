@@ -30,21 +30,13 @@ def serve_index():
 def get_paginated_data(
     page: int = Query(1, ge=1),
     size: int = Query(100, ge=1, le=1000),
-    text: str = Query(""),
-    sort: str = Query("ID"),
-    direction: str = Query("asc")
+    text: str = Query("")
 ):
-    allowed_cols = ["ID", "playlist", "title", "timing", "transcript", "pos_tags", "audio"]
-    if sort not in allowed_cols:
-        sort = "ID"
-    if direction not in ["asc", "desc"]:
-        direction = "asc"
-
+    offset = (page - 1) * size
     text_clean = text.strip().strip('"“”\'')
     where_clause = ""
 
     if text_clean:
-        # FTS5 MATCH clause — just space-separated, not quoted!
         match_expr = re.sub(r'\s+', ' ', text_clean)
         where_clause = f"""
         WHERE rowid IN (
@@ -53,17 +45,14 @@ def get_paginated_data(
         )
         """
 
-    offset = (page - 1) * size
-
     try:
         count_query = f"SELECT COUNT(*) FROM forensic_data {where_clause}"
         total = con.execute(count_query).fetchone()[0]
 
         query = f"""
-        SELECT ID, playlist, title, timing, transcript, pos_tags, audio
+        SELECT id, playlist, title, timing, transcript, pos_tags, audio
         FROM forensic_data
         {where_clause}
-        ORDER BY "{sort}" {direction}
         LIMIT {size} OFFSET {offset}
         """
         df = pd.read_sql_query(query, con)
@@ -76,7 +65,7 @@ def get_paginated_data(
 @app.get("/audio/{id}")
 def get_audio(id: str):
     try:
-        row = con.execute("SELECT audio FROM forensic_data WHERE ID = ?", [id]).fetchone()
+        row = con.execute("SELECT audio FROM forensic_data WHERE id = ?", [id]).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Audio not found")
         return {"audio_url": row[0]}
