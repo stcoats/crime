@@ -19,7 +19,7 @@
   <div class="d-flex justify-content-between align-items-end mb-3">
     <h1 class="h3">C.R.I.M.E. DB Results</h1>
     <small class="text-muted text-end" style="max-width: 60%;">
-      This database contains transcript segments with associated audio from the <i>Corpus of Investigative Interviews and Criminal Justice Discourse</i>. Please wait a few moments for the database to load. You can search by text or POS tags, sort by any column, and play the corresponding audio URL.
+      This database contains transcript segments with associated audio from the <i>Corpus of Investigative Interviews and Criminal Justice Discourse</i>. Please wait a few moments for the database to load. You can search by transcript text (e.g. <code>court ruled</code>) or POS tags (e.g. <code>NN VBD</code>). To search for an exact phrase, use quotes (e.g. <code>"did you say"</code>). The "timing" column indicates the offset time, in seconds, from the start of the corresponding video. You can play the corresponding audio and sort by any column.
     </small>
   </div>
 
@@ -32,6 +32,7 @@
       <button class="btn btn-primary" onclick="doSearch()">Search</button>
     </div>
   </div>
+
   <div class="mb-2 text-muted" id="hitCount">Loading results...</div>
 
   <table class="table table-bordered table-striped table-hover table-sm" id="dataTable">
@@ -51,11 +52,11 @@
 
   <div class="d-flex justify-content-center my-3" id="paginationControls"></div>
 
-  <script>
+<script>
 let currentPage = 1;
 let totalRows = 0;
 let pageSize = 100;
-let currentSort = 'ID';
+let currentSort = 'id';
 let currentDirection = 'asc';
 
 function doSearch() {
@@ -123,10 +124,12 @@ function renderTable(rows, queryText) {
   const tbody = document.querySelector("#dataTable tbody");
   tbody.innerHTML = "";
 
+  const cleanQuery = queryText.replace(/^["']|["']$/g, '').split(/\s+/).join(' ');
+
   rows.forEach(r => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${r.ID}</td>
+      <td>${r.id}</td>
       <td>${r.playlist}</td>
       <td>${r.title}</td>
       <td>${r.timing || ""}</td>
@@ -136,7 +139,7 @@ function renderTable(rows, queryText) {
         </audio>
       </td>
       <td>${highlightMatches(r.transcript, queryText)}</td>
-      <td>${highlightMatches(r.pos_tags, queryText)}</td>
+      <td>${highlightMatches(r.pos_tags, cleanQuery)}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -184,6 +187,5 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 });
 </script>
-
 </body>
 </html>
