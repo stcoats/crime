@@ -60,10 +60,10 @@ let currentSort = 'id';
 let currentDirection = 'asc';
 
 function extractTokens(query) {
-  const quoted = /^["'].*["']$/.test(query);
   const cleaned = query.replace(/^["']|["']$/g, '');
-  return quoted ? [cleaned.trim()] : cleaned.split(/\s+/).filter(Boolean);
+  return cleaned.split(/\s+/).filter(Boolean);
 }
+
 
 function highlightMatches(text, tokens) {
   if (!text || tokens.length === 0) return text;
