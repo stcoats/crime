@@ -32,6 +32,7 @@
       <button class="btn btn-primary" onclick="doSearch()">Search</button>
     </div>
   </div>
+  <div class="mb-2 text-muted" id="hitCount">Loading results...</div>
 
   <table class="table table-bordered table-striped table-hover table-sm" id="dataTable">
     <thead class="table-dark">
@@ -51,117 +52,138 @@
   <div class="d-flex justify-content-center my-3" id="paginationControls"></div>
 
   <script>
-    let currentPage = 1;
-    let totalRows = 0;
-    let pageSize = 100;
-    let currentSort = 'id';
-    let currentDirection = 'asc';
+let currentPage = 1;
+let totalRows = 0;
+let pageSize = 100;
+let currentSort = 'ID';
+let currentDirection = 'asc';
 
-    function doSearch() {
-      currentPage = 1;
-      loadData();
-    }
+function doSearch() {
+  currentPage = 1;
+  loadData();
+}
 
-    function sortBy(column) {
-      if (currentSort === column) {
-        currentDirection = (currentDirection === 'asc') ? 'desc' : 'asc';
-      } else {
-        currentSort = column;
-        currentDirection = 'asc';
-      }
-      currentPage = 1;
-      loadData();
-    }
+function sortBy(column) {
+  if (currentSort === column) {
+    currentDirection = (currentDirection === 'asc') ? 'desc' : 'asc';
+  } else {
+    currentSort = column;
+    currentDirection = 'asc';
+  }
+  currentPage = 1;
+  loadData();
+}
 
-    function goPage(page) {
-      currentPage = page;
-      loadData();
-    }
+function goPage(page) {
+  if (page < 1) return;
+  const totalPages = Math.ceil(totalRows / pageSize);
+  if (page > totalPages) return;
+  currentPage = page;
+  loadData();
+}
 
-    function loadData() {
-      const inputEl = document.getElementById('searchInput');
-      if (!inputEl) return;
-      const textVal = inputEl.value.trim();
-      const url = `/data?page=${currentPage}&size=${pageSize}&text=${encodeURIComponent(textVal)}&sort=${currentSort}&direction=${currentDirection}`;
+function highlightMatches(text, query) {
+  if (!query || !text) return text;
+  const quoted = /^["'].*["']$/.test(query);
+  const cleanQuery = query.replace(/^["']|["']$/g, '');
+  if (quoted) {
+    const phrase = cleanQuery.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const pattern = new RegExp(phrase, 'gi');
+    return text.replace(pattern, match =>
+      `<span style="color:red; font-weight:bold;">${match}</span>`
+    );
+  } else {
+    const words = cleanQuery.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return text;
+    const pattern = new RegExp(`\\b(${words.map(w => w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})\\b`, 'gi');
+    return text.replace(pattern, match =>
+      `<span style="color:red; font-weight:bold;">${match}</span>`
+    );
+  }
+}
 
-      fetch(url)
-        .then(res => res.json())
-        .then(json => {
-          totalRows = json.total;
-          renderTable(json.data);
-          renderPagination();
-        })
-        .catch(err => console.error("Error fetching /data:", err));
-    }
-    function highlightMatches(text, query) {
-        if (!query) return text;
-      
-        // Remove outer quotes from search (optional, only if you want this behavior)
-        query = query.replace(/^["']|["']$/g, '');
-      
-        const escaped = query.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-        const pattern = new RegExp(escaped, "gi");
-      
-        return text.replace(pattern, match => `<span style="color:red; font-weight:bold;">${match}</span>`);
-      }
+function loadData() {
+  const inputEl = document.getElementById('searchInput');
+  if (!inputEl) return;
+  const textVal = inputEl.value.trim();
+  const url = `/data?page=${currentPage}&size=${pageSize}&text=${encodeURIComponent(textVal)}&sort=${currentSort}&direction=${currentDirection}`;
 
-    function renderTable(rows) {
-      const tbody = document.querySelector("#dataTable tbody");
-      tbody.innerHTML = "";
-      const inputText = document.getElementById("searchInput").value.trim();
-    
-      rows.forEach(r => {
-        const highlightedTranscript = highlightMatches(r.transcript, inputText);
-    
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${r.ID}</td>
-          <td>${r.playlist}</td>
-          <td>${r.title}</td>
-          <td>${r.timing || ""}</td>
-          <td class="audio-cell">
-            <audio controls preload="none">
-              <source src="${r.audio}" type="audio/mpeg">
-            </audio>
-          </td>
-          <td>${highlightedTranscript}</td>
-          <td>${r.pos_tags || ""}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
+  fetch(url)
+    .then(res => res.json())
+    .then(json => {
+      totalRows = json.total;
+      renderTable(json.data, textVal);
+      renderPagination();
+      renderHitCount();
+    })
+    .catch(err => console.error("Error fetching /data:", err));
+}
 
+function renderTable(rows, queryText) {
+  const tbody = document.querySelector("#dataTable tbody");
+  tbody.innerHTML = "";
 
-    function renderPagination() {
-      const container = document.getElementById("paginationControls");
-      container.innerHTML = "";
-      const totalPages = Math.ceil(totalRows / pageSize);
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.ID}</td>
+      <td>${r.playlist}</td>
+      <td>${r.title}</td>
+      <td>${r.timing || ""}</td>
+      <td class="audio-cell">
+        <audio controls preload="none">
+          <source src="${r.audio}" type="audio/mpeg">
+        </audio>
+      </td>
+      <td>${highlightMatches(r.transcript, queryText)}</td>
+      <td>${highlightMatches(r.pos_tags, queryText)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
 
-      if (currentPage > 1) {
-        const btnPrev = document.createElement("button");
-        btnPrev.classList.add("btn", "btn-secondary", "me-2");
-        btnPrev.textContent = "Prev";
-        btnPrev.onclick = () => goPage(currentPage - 1);
-        container.appendChild(btnPrev);
-      }
+function renderPagination() {
+  const container = document.getElementById("paginationControls");
+  container.innerHTML = "";
+  const totalPages = Math.ceil(totalRows / pageSize);
+  if (totalPages <= 1) return;
 
-      const pageInfo = document.createElement("span");
-      pageInfo.classList.add("align-self-center", "mx-2");
-      pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
-      container.appendChild(pageInfo);
+  const makeBtn = (label, targetPage) => {
+    const btn = document.createElement("button");
+    btn.classList.add("btn", "btn-sm", "btn-secondary", "mx-1");
+    btn.textContent = label;
+    btn.onclick = () => goPage(targetPage);
+    return btn;
+  };
 
-      if (currentPage < totalPages) {
-        const btnNext = document.createElement("button");
-        btnNext.classList.add("btn", "btn-secondary", "ms-2");
-        btnNext.textContent = "Next";
-        btnNext.onclick = () => goPage(currentPage + 1);
-        container.appendChild(btnNext);
-      }
-    }
+  if (currentPage > 1) {
+    container.appendChild(makeBtn("« First", 1));
+    container.appendChild(makeBtn("‹ Prev", currentPage - 1));
+  }
 
-    window.addEventListener("DOMContentLoaded", () => {
-      loadData();
-    });
-  </script>
+  const info = document.createElement("span");
+  info.classList.add("mx-3", "align-self-center");
+  info.textContent = `Page ${currentPage} of ${totalPages}`;
+  container.appendChild(info);
+
+  if (currentPage < totalPages) {
+    container.appendChild(makeBtn("Next ›", currentPage + 1));
+    container.appendChild(makeBtn("Last »", totalPages));
+  }
+}
+
+function renderHitCount() {
+  const counter = document.getElementById("hitCount");
+  counter.textContent = `${totalRows} results found.`;
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  loadData();
+  document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch();
+  });
+});
+</script>
+
 </body>
 </html>
