@@ -33,7 +33,7 @@ def get_paginated_data(
     text: str = Query("")
 ):
     offset = (page - 1) * size
-    text_clean = text.strip().strip('"“”\'')
+    text_clean = text.strip().strip()
     where_clause = ""
 
     if text_clean:
