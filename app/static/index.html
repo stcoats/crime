@@ -113,28 +113,54 @@ function loadData() {
     .catch(err => console.error("Error fetching /data:", err));
 }
 
-function renderTable(rows, tokens) {
-  const tbody = document.querySelector("#dataTable tbody");
-  tbody.innerHTML = "";
-
-  rows.forEach(r => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${r.id}</td>
-      <td>${r.playlist}</td>
-      <td>${r.title}</td>
-      <td>${r.timing || ""}</td>
-      <td class="audio-cell">
-        <audio controls preload="none">
-          <source src="${r.audio}" type="audio/mpeg">
-        </audio>
-      </td>
-      <td>${highlightMatches(r.transcript, tokens)}</td>
-      <td>${highlightMatches(r.pos_tags, tokens)}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
+  function renderTable(rows, tokens) {
+    const tbody = document.querySelector("#dataTable tbody");
+    tbody.innerHTML = "";
+  
+    const isPOSsearch = tokens.every(t => /^[A-Z$]+$/.test(t)); // crude POS check: all caps or $
+  
+    rows.forEach(r => {
+      const words = (r.transcript || "").split(/\s+/);
+      const tags = (r.pos_tags || "").split(/\s+/);
+      let highlightedWords = [];
+      let highlightedTags = [];
+  
+      // Match POS search → highlight POS directly, and highlight aligned words
+      if (isPOSsearch) {
+        highlightedTags = tags.map((tag, i) =>
+          tokens.includes(tag) ? `<span style="color:red; font-weight:bold;">${tag}</span>` : tag
+        );
+        highlightedWords = words.map((w, i) =>
+          tokens.includes(tags[i]) ? `<span style="color:red; font-weight:bold;">${w}</span>` : w
+        );
+      }
+      // Text search → highlight words, and highlight corresponding POS tags by position
+      else {
+        highlightedWords = words.map(w =>
+          tokens.includes(w.toLowerCase()) ? `<span style="color:red; font-weight:bold;">${w}</span>` : w
+        );
+        highlightedTags = tags.map((tag, i) =>
+          tokens.includes((words[i] || "").toLowerCase()) ? `<span style="color:red; font-weight:bold;">${tag}</span>` : tag
+        );
+      }
+  
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${r.id}</td>
+        <td>${r.playlist}</td>
+        <td>${r.title}</td>
+        <td>${r.timing || ""}</td>
+        <td class="audio-cell">
+          <audio controls preload="none">
+            <source src="${r.audio}" type="audio/mpeg">
+          </audio>
+        </td>
+        <td>${highlightedWords.join(" ")}</td>
+        <td>${highlightedTags.join(" ")}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
 
 function renderPagination() {
   const container = document.getElementById("paginationControls");
