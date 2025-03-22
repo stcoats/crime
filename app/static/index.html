@@ -93,15 +93,29 @@
         })
         .catch(err => console.error("Error fetching /data:", err));
     }
+    function highlightMatches(text, query) {
+        if (!query) return text;
+      
+        // Remove outer quotes from search (optional, only if you want this behavior)
+        query = query.replace(/^["']|["']$/g, '');
+      
+        const escaped = query.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const pattern = new RegExp(escaped, "gi");
+      
+        return text.replace(pattern, match => `<span style="color:red; font-weight:bold;">${match}</span>`);
+      }
 
     function renderTable(rows) {
       const tbody = document.querySelector("#dataTable tbody");
       tbody.innerHTML = "";
-
+      const inputText = document.getElementById("searchInput").value.trim();
+    
       rows.forEach(r => {
+        const highlightedTranscript = highlightMatches(r.transcript, inputText);
+    
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${r.id || r.ID || ""}</td>
+          <td>${r.ID}</td>
           <td>${r.playlist}</td>
           <td>${r.title}</td>
           <td>${r.timing || ""}</td>
@@ -110,12 +124,13 @@
               <source src="${r.audio}" type="audio/mpeg">
             </audio>
           </td>
-          <td>${r.transcript}</td>
+          <td>${highlightedTranscript}</td>
           <td>${r.pos_tags || ""}</td>
         `;
         tbody.appendChild(tr);
       });
     }
+
 
     function renderPagination() {
       const container = document.getElementById("paginationControls");
