@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <title>Forensic DB</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" crossorigin="anonymous">
+  <link 
+    rel="stylesheet" 
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css"
+    crossorigin="anonymous"
+  >
   <style>
     body { margin: 16px; font-size: 0.9rem; }
     th { cursor: pointer; }
@@ -16,12 +20,12 @@
     <h1 class="h3">C.R.I.M.E. DB Results</h1>
     <small class="text-muted text-end" style="max-width: 60%;">
       This database contains transcript segments with associated audio from the <i>Corpus of Investigative Interviews and Criminal Justice Discourse</i>.
-      Please wait a few moments for the database to load. You can search by transcript text (e.g. <code>court ruled</code>) or POS tags (e.g. <code>NN VBD</code>).
-      To search for an exact phrase, use quotes (e.g. <code>"did you say"</code>). The "timing" column indicates the offset time, in seconds, from the start of the corresponding video.
+      You can search by transcript text (e.g. <code>court ruled</code>) or POS tags (e.g. <code>NN VBD</code>).
+      To search for an exact phrase, use quotes (e.g. <code>"did you say"</code>).
     </small>
   </div>
 
-  <div class="row mb-3">
+  <div class="row mb-2">
     <div class="col-auto">
       <label for="searchInput" class="form-label">Search text:</label>
       <input type="text" id="searchInput" class="form-control" placeholder="Search text or POS tags">
@@ -31,8 +35,10 @@
     </div>
   </div>
 
-  <div class="mb-2"><strong>Filter by Playlist:</strong></div>
-  <div class="mb-3" id="playlistFilters" style="margin-bottom: 10px;"></div>
+  <div class="mb-2">
+    <strong>Filter by Playlist:</strong>
+    <div id="playlistCheckboxes" class="d-flex flex-wrap gap-3 mt-2"></div>
+  </div>
 
   <div class="mb-2 text-muted" id="hitCount">Loading results...</div>
 
@@ -95,49 +101,20 @@ function goPage(page) {
   loadData();
 }
 
-function loadPlaylists() {
-  fetch('/playlists')
-    .then(res => res.json())
-    .then(list => {
-      const container = document.getElementById('playlistFilters');
-      container.innerHTML = "";
-      list.forEach(playlist => {
-        const safeId = `playlist_${playlist.replace(/\W+/g, '_')}`;
-        const wrapper = document.createElement('div');
-        wrapper.classList.add('form-check', 'form-check-inline');
-        wrapper.innerHTML = `
-          <input class="form-check-input" type="checkbox" id="${safeId}" value="${playlist}" checked>
-          <label class="form-check-label" for="${safeId}">${playlist}</label>
-        `;
-        container.appendChild(wrapper);
-      });
-    })
-    .catch(err => {
-      console.error("Failed to load playlists:", err);
-    });
+function getSelectedPlaylists() {
+  const checkboxes = document.querySelectorAll("#playlistCheckboxes input[type=checkbox]:checked");
+  return Array.from(checkboxes).map(cb => cb.value);
 }
 
 function loadData() {
-  const inputEl = document.getElementById('searchInput');
-  if (!inputEl) return;
-  const textVal = inputEl.value.trim();
+  const textVal = document.getElementById('searchInput').value.trim();
   const tokens = extractTokens(textVal);
+  const selectedPlaylists = getSelectedPlaylists();
+  const playlistFilter = selectedPlaylists.map(encodeURIComponent).join(',');
 
-  const selectedPlaylists = Array.from(
-    document.querySelectorAll('#playlistFilters input[type=checkbox]:checked')
-  ).map(cb => cb.value);
+  const url = `/data?page=${currentPage}&size=${pageSize}&text=${encodeURIComponent(textVal)}&sort=${currentSort}&direction=${currentDirection}&playlist_filter=${playlistFilter}`;
 
-  const params = new URLSearchParams({
-    page: currentPage,
-    size: pageSize,
-    text: textVal,
-    sort: currentSort,
-    direction: currentDirection
-  });
-
-  selectedPlaylists.forEach(p => params.append("playlist", p));
-
-  fetch('/data?' + params.toString())
+  fetch(url)
     .then(res => res.json())
     .then(json => {
       totalRows = json.total;
@@ -152,13 +129,15 @@ function renderTable(rows, tokens) {
   const tbody = document.querySelector("#dataTable tbody");
   tbody.innerHTML = "";
 
-  const isPOS = tokens.every(t => /^[A-Z$]+$/.test(t));
+  const isPOSsearch = tokens.every(t => /^[A-Z$]+$/.test(t));
+
   rows.forEach(r => {
     const words = (r.transcript || "").split(/\s+/);
     const tags = (r.pos_tags || "").split(/\s+/);
-    let highlightedWords = [], highlightedTags = [];
+    let highlightedWords = [];
+    let highlightedTags = [];
 
-    if (isPOS) {
+    if (isPOSsearch) {
       highlightedTags = tags.map((tag, i) =>
         tokens.includes(tag) ? `<span style="color:red; font-weight:bold;">${tag}</span>` : tag
       );
@@ -180,7 +159,11 @@ function renderTable(rows, tokens) {
       <td>${r.playlist}</td>
       <td>${r.title}</td>
       <td>${r.timing || ""}</td>
-      <td class="audio-cell"><audio controls preload="none"><source src="${r.audio}" type="audio/mpeg"></audio></td>
+      <td class="audio-cell">
+        <audio controls preload="none">
+          <source src="${r.audio}" type="audio/mpeg">
+        </audio>
+      </td>
       <td>${highlightedWords.join(" ")}</td>
       <td>${highlightedTags.join(" ")}</td>
     `;
@@ -221,6 +204,24 @@ function renderPagination() {
 function renderHitCount() {
   const counter = document.getElementById("hitCount");
   counter.textContent = `${totalRows} results found.`;
+}
+
+function loadPlaylists() {
+  fetch("/playlists")
+    .then(res => res.json())
+    .then(playlists => {
+      const container = document.getElementById("playlistCheckboxes");
+      playlists.forEach(playlist => {
+        const div = document.createElement("div");
+        div.classList.add("form-check", "me-3");
+        div.innerHTML = `
+          <input class="form-check-input" type="checkbox" value="${playlist}" id="cb-${playlist}" checked>
+          <label class="form-check-label" for="cb-${playlist}">${playlist}</label>
+        `;
+        container.appendChild(div);
+      });
+    })
+    .catch(err => console.error("Failed to load playlists:", err));
 }
 
 window.addEventListener("DOMContentLoaded", () => {
