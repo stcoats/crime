@@ -3,11 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Forensic DB</title>
-  <link 
-    rel="stylesheet" 
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css"
-    crossorigin="anonymous"
-  >
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" crossorigin="anonymous">
   <style>
     body { margin: 16px; font-size: 0.9rem; }
     th { cursor: pointer; }
@@ -19,11 +15,13 @@
   <div class="d-flex justify-content-between align-items-end mb-3">
     <h1 class="h3">C.R.I.M.E. DB Results</h1>
     <small class="text-muted text-end" style="max-width: 60%;">
-      This database contains transcript segments with associated audio from the <i>Corpus of Investigative Interviews and Criminal Justice Discourse</i>. Please wait a few moments for the database to load. You can search by transcript text (e.g. <code>court ruled</code>) or POS tags (e.g. <code>NN VBD</code>). To search for an exact phrase, use quotes (e.g. <code>"did you say"</code>). The "timing" column indicates the offset time, in seconds, from the start of the corresponding video. You can play the corresponding audio and sort by any column.
+      This database contains transcript segments with associated audio from the <i>Corpus of Investigative Interviews and Criminal Justice Discourse</i>.
+      Please wait a few moments for the database to load. You can search by transcript text (e.g. <code>court ruled</code>) or POS tags (e.g. <code>NN VBD</code>).
+      To search for an exact phrase, use quotes (e.g. <code>"did you say"</code>). The "timing" column indicates the offset time, in seconds, from the start of the corresponding video.
     </small>
   </div>
 
-  <div class="row mb-2">
+  <div class="row mb-3">
     <div class="col-auto">
       <label for="searchInput" class="form-label">Search text:</label>
       <input type="text" id="searchInput" class="form-control" placeholder="Search text or POS tags">
@@ -33,12 +31,8 @@
     </div>
   </div>
 
-  <div class="row mb-3">
-    <div class="col-12">
-      <label class="form-label">Filter by Playlist:</label>
-      <div id="playlistFilters" class="d-flex flex-wrap gap-3"></div>
-    </div>
-  </div>
+  <div class="mb-2"><strong>Filter by Playlist:</strong></div>
+  <div class="mb-3" id="playlistFilters" style="margin-bottom: 10px;"></div>
 
   <div class="mb-2 text-muted" id="hitCount">Loading results...</div>
 
@@ -65,7 +59,6 @@ let totalRows = 0;
 let pageSize = 100;
 let currentSort = 'id';
 let currentDirection = 'asc';
-let allPlaylists = [];
 
 function extractTokens(query) {
   const cleaned = query.replace(/^["']|["']$/g, '');
@@ -76,35 +69,6 @@ function highlightMatches(text, tokens) {
   if (!text || tokens.length === 0) return text;
   const pattern = new RegExp(`\\b(${tokens.map(t => t.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})\\b`, 'gi');
   return text.replace(pattern, match => `<span style="color:red; font-weight:bold;">${match}</span>`);
-}
-
-function getSelectedPlaylists() {
-  const boxes = document.querySelectorAll("#playlistFilters input[type=checkbox]");
-  const selected = [];
-  boxes.forEach(box => {
-    if (box.checked) selected.push(box.value);
-  });
-  return selected;
-}
-
-function populatePlaylistFilters(playlists) {
-  const container = document.getElementById("playlistFilters");
-  container.innerHTML = "";
-  playlists.forEach(pl => {
-    const label = document.createElement("label");
-    label.classList.add("form-check-label", "me-3");
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.value = pl;
-    checkbox.classList.add("form-check-input", "me-1");
-    checkbox.checked = true;
-    checkbox.addEventListener("change", () => loadData());
-
-    label.appendChild(checkbox);
-    label.append(pl);
-    container.appendChild(label);
-  });
 }
 
 function doSearch() {
@@ -131,26 +95,55 @@ function goPage(page) {
   loadData();
 }
 
+function loadPlaylists() {
+  fetch('/playlists')
+    .then(res => res.json())
+    .then(list => {
+      const container = document.getElementById('playlistFilters');
+      container.innerHTML = "";
+      list.forEach(playlist => {
+        const safeId = `playlist_${playlist.replace(/\W+/g, '_')}`;
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('form-check', 'form-check-inline');
+        wrapper.innerHTML = `
+          <input class="form-check-input" type="checkbox" id="${safeId}" value="${playlist}" checked>
+          <label class="form-check-label" for="${safeId}">${playlist}</label>
+        `;
+        container.appendChild(wrapper);
+      });
+    })
+    .catch(err => {
+      console.error("Failed to load playlists:", err);
+    });
+}
+
 function loadData() {
   const inputEl = document.getElementById('searchInput');
   if (!inputEl) return;
   const textVal = inputEl.value.trim();
   const tokens = extractTokens(textVal);
-  const playlists = getSelectedPlaylists();
-  const playlistParam = encodeURIComponent(JSON.stringify(playlists));
-  const url = `/data?page=${currentPage}&size=${pageSize}&text=${encodeURIComponent(textVal)}&sort=${currentSort}&direction=${currentDirection}&playlists=${playlistParam}`;
 
-  fetch(url)
+  const selectedPlaylists = Array.from(
+    document.querySelectorAll('#playlistFilters input[type=checkbox]:checked')
+  ).map(cb => cb.value);
+
+  const params = new URLSearchParams({
+    page: currentPage,
+    size: pageSize,
+    text: textVal,
+    sort: currentSort,
+    direction: currentDirection
+  });
+
+  selectedPlaylists.forEach(p => params.append("playlist", p));
+
+  fetch('/data?' + params.toString())
     .then(res => res.json())
     .then(json => {
       totalRows = json.total;
       renderTable(json.data, tokens);
       renderPagination();
       renderHitCount();
-      if (allPlaylists.length === 0) {
-        allPlaylists = [...new Set(json.data.map(r => r.playlist))].sort();
-        populatePlaylistFilters(allPlaylists);
-      }
     })
     .catch(err => console.error("Error fetching /data:", err));
 }
@@ -159,15 +152,13 @@ function renderTable(rows, tokens) {
   const tbody = document.querySelector("#dataTable tbody");
   tbody.innerHTML = "";
 
-  const isPOSsearch = tokens.every(t => /^[A-Z$]+$/.test(t));
-
+  const isPOS = tokens.every(t => /^[A-Z$]+$/.test(t));
   rows.forEach(r => {
     const words = (r.transcript || "").split(/\s+/);
     const tags = (r.pos_tags || "").split(/\s+/);
-    let highlightedWords = [];
-    let highlightedTags = [];
+    let highlightedWords = [], highlightedTags = [];
 
-    if (isPOSsearch) {
+    if (isPOS) {
       highlightedTags = tags.map((tag, i) =>
         tokens.includes(tag) ? `<span style="color:red; font-weight:bold;">${tag}</span>` : tag
       );
@@ -189,11 +180,7 @@ function renderTable(rows, tokens) {
       <td>${r.playlist}</td>
       <td>${r.title}</td>
       <td>${r.timing || ""}</td>
-      <td class="audio-cell">
-        <audio controls preload="none">
-          <source src="${r.audio}" type="audio/mpeg">
-        </audio>
-      </td>
+      <td class="audio-cell"><audio controls preload="none"><source src="${r.audio}" type="audio/mpeg"></audio></td>
       <td>${highlightedWords.join(" ")}</td>
       <td>${highlightedTags.join(" ")}</td>
     `;
@@ -237,11 +224,13 @@ function renderHitCount() {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
+  loadPlaylists();
   loadData();
   document.getElementById('searchInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') doSearch();
   });
 });
 </script>
+
 </body>
 </html>
