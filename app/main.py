@@ -30,32 +30,45 @@ def serve_index():
 def get_paginated_data(
     page: int = Query(1, ge=1),
     size: int = Query(100, ge=1, le=1000),
-    text: str = Query("")
+    text: str = Query(""),
+    playlists: str = Query("")  # comma-separated string from frontend
 ):
     offset = (page - 1) * size
     text_clean = text.strip().strip()
-    where_clause = ""
+    where_clauses = []
 
     if text_clean:
         match_expr = re.sub(r'\s+', ' ', text_clean)
-        where_clause = f"""
-        WHERE rowid IN (
+        where_clauses.append(f"""
+        rowid IN (
             SELECT rowid FROM forensic_data_fts
             WHERE forensic_data_fts MATCH {repr(match_expr)}
         )
-        """
+        """)
+
+    if playlists:
+        selected = [p.strip() for p in playlists.split(",") if p.strip()]
+        placeholders = ",".join("?" for _ in selected)
+        where_clauses.append(f"playlist IN ({placeholders})")
+
+    where_sql = ""
+    query_params = []
+    if where_clauses:
+        where_sql = "WHERE " + " AND ".join(where_clauses)
+        if playlists:
+            query_params += selected
 
     try:
-        count_query = f"SELECT COUNT(*) FROM forensic_data {where_clause}"
-        total = con.execute(count_query).fetchone()[0]
+        count_query = f"SELECT COUNT(*) FROM forensic_data {where_sql}"
+        total = con.execute(count_query, query_params).fetchone()[0]
 
         query = f"""
         SELECT id, playlist, title, timing, transcript, pos_tags, audio
         FROM forensic_data
-        {where_clause}
+        {where_sql}
         LIMIT {size} OFFSET {offset}
         """
-        df = pd.read_sql_query(query, con)
+        df = pd.read_sql_query(query, con, params=query_params)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Data query error: {e}")
