@@ -77,6 +77,11 @@ function highlightMatches(text, tokens) {
   return text.replace(pattern, match => `<span style="color:red; font-weight:bold;">${match}</span>`);
 }
 
+function getSelectedPlaylists() {
+  const checkboxes = document.querySelectorAll("#playlistCheckboxes input[type=checkbox]:checked");
+  return Array.from(checkboxes).map(cb => cb.value);
+}
+
 function doSearch() {
   currentPage = 1;
   loadData();
@@ -101,18 +106,14 @@ function goPage(page) {
   loadData();
 }
 
-function getSelectedPlaylists() {
-  const checkboxes = document.querySelectorAll("#playlistCheckboxes input[type=checkbox]:checked");
-  return Array.from(checkboxes).map(cb => cb.value);
-}
-
 function loadData() {
-  const textVal = document.getElementById('searchInput').value.trim();
+  const inputEl = document.getElementById('searchInput');
+  const textVal = inputEl.value.trim();
   const tokens = extractTokens(textVal);
   const selectedPlaylists = getSelectedPlaylists();
-  const playlistFilter = selectedPlaylists.map(encodeURIComponent).join(',');
+  const playlistParam = encodeURIComponent(selectedPlaylists.join(','));
 
-  const url = `/data?page=${currentPage}&size=${pageSize}&text=${encodeURIComponent(textVal)}&sort=${currentSort}&direction=${currentDirection}&playlist_filter=${playlistFilter}`;
+  const url = `/data?page=${currentPage}&size=${pageSize}&text=${encodeURIComponent(textVal)}&sort=${currentSort}&direction=${currentDirection}&playlists=${playlistParam}`;
 
   fetch(url)
     .then(res => res.json())
@@ -211,14 +212,19 @@ function loadPlaylists() {
     .then(res => res.json())
     .then(playlists => {
       const container = document.getElementById("playlistCheckboxes");
-      playlists.forEach(playlist => {
-        const div = document.createElement("div");
-        div.classList.add("form-check", "me-3");
-        div.innerHTML = `
-          <input class="form-check-input" type="checkbox" value="${playlist}" id="cb-${playlist}" checked>
-          <label class="form-check-label" for="cb-${playlist}">${playlist}</label>
-        `;
-        container.appendChild(div);
+      container.innerHTML = "";
+      playlists.forEach(p => {
+        const label = document.createElement("label");
+        label.classList.add("form-check", "me-3");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.classList.add("form-check-input", "me-1");
+        checkbox.value = p;
+        checkbox.checked = true;
+        checkbox.addEventListener("change", doSearch);
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(p));
+        container.appendChild(label);
       });
     })
     .catch(err => console.error("Failed to load playlists:", err));
