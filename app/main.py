@@ -34,29 +34,30 @@ def get_paginated_data(
     playlists: str = Query("")  # comma-separated string from frontend
 ):
     offset = (page - 1) * size
-    text_clean = text.strip().strip()
+    text_clean = text.strip()
     where_clauses = []
+    query_params = []
 
     if text_clean:
         match_expr = re.sub(r'\s+', ' ', text_clean)
         where_clauses.append(f"""
         rowid IN (
             SELECT rowid FROM forensic_data_fts
-            WHERE forensic_data_fts MATCH {repr(match_expr)}
+            WHERE forensic_data_fts MATCH ?
         )
         """)
+        query_params.append(match_expr)
 
     if playlists:
         selected = [p.strip() for p in playlists.split(",") if p.strip()]
-        placeholders = ",".join("?" for _ in selected)
-        where_clauses.append(f"playlist IN ({placeholders})")
+        if selected:
+            placeholders = ",".join(["?"] * len(selected))
+            where_clauses.append(f"playlist IN ({placeholders})")
+            query_params.extend(selected)
 
     where_sql = ""
-    query_params = []
     if where_clauses:
         where_sql = "WHERE " + " AND ".join(where_clauses)
-        if playlists:
-            query_params += selected
 
     try:
         count_query = f"SELECT COUNT(*) FROM forensic_data {where_sql}"
@@ -74,6 +75,15 @@ def get_paginated_data(
         raise HTTPException(status_code=500, detail=f"Data query error: {e}")
 
     return {"total": total, "data": df.to_dict(orient="records")}
+
+@app.get("/playlists")
+def get_playlists():
+    try:
+        result = con.execute("SELECT DISTINCT playlist FROM forensic_data ORDER BY playlist").fetchall()
+        playlists = [row[0] for row in result if row[0]]
+        return playlists
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get playlists: {e}")
 
 @app.get("/audio/{id}")
 def get_audio(id: str):
