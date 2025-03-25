@@ -39,10 +39,11 @@
     <strong>Filter by Playlist:</strong>
     <div id="playlistCheckboxes" class="d-flex flex-wrap gap-3 mt-2"></div>
   </div>
-<div class="mb-3 d-flex gap-2">
-  <button class="btn btn-outline-success btn-sm" onclick="downloadCSV()">Download CSV</button>
-  <button class="btn btn-outline-primary btn-sm" onclick="downloadMP3s()">Download MP3s (ZIP)</button>
-</div>
+
+  <div class="mb-3 d-flex gap-2">
+    <a id="csvBtn" href="#" class="btn btn-outline-success btn-sm d-none">Download CSV (Page)</a>
+    <a id="mp3Btn" href="#" class="btn btn-outline-primary btn-sm d-none">Download MP3s (Page)</a>
+  </div>
 
   <div class="mb-2 text-muted" id="hitCount">Loading results...</div>
 
@@ -71,7 +72,7 @@ let currentSort = 'id';
 let currentDirection = 'asc';
 
 function extractTokens(query) {
-  const cleaned = query.replace(/^["']|["']$/g, '');
+  const cleaned = query.replace(/^\"|\"$/g, '').replace(/^'|'$/g, '');
   return cleaned.split(/\s+/).filter(Boolean);
 }
 
@@ -126,8 +127,18 @@ function loadData() {
       renderTable(json.data, tokens);
       renderPagination();
       renderHitCount();
+      updateDownloadLinks(textVal, playlistParam);
     })
     .catch(err => console.error("Error fetching /data:", err));
+}
+
+function updateDownloadLinks(textVal, playlistParam) {
+  const csvBtn = document.getElementById("csvBtn");
+  const mp3Btn = document.getElementById("mp3Btn");
+  csvBtn.href = `/download/csv?page=${currentPage}&size=${pageSize}&text=${encodeURIComponent(textVal)}&playlists=${playlistParam}`;
+  mp3Btn.href = `/download/mp3zip?page=${currentPage}&size=${pageSize}&text=${encodeURIComponent(textVal)}&playlists=${playlistParam}`;
+  csvBtn.classList.remove("d-none");
+  mp3Btn.classList.remove("d-none");
 }
 
 function renderTable(rows, tokens) {
@@ -143,19 +154,11 @@ function renderTable(rows, tokens) {
     let highlightedTags = [];
 
     if (isPOSsearch) {
-      highlightedTags = tags.map((tag, i) =>
-        tokens.includes(tag) ? `<span style="color:red; font-weight:bold;">${tag}</span>` : tag
-      );
-      highlightedWords = words.map((w, i) =>
-        tokens.includes(tags[i]) ? `<span style="color:red; font-weight:bold;">${w}</span>` : w
-      );
+      highlightedTags = tags.map((tag, i) => tokens.includes(tag) ? `<span style="color:red; font-weight:bold;">${tag}</span>` : tag);
+      highlightedWords = words.map((w, i) => tokens.includes(tags[i]) ? `<span style="color:red; font-weight:bold;">${w}</span>` : w);
     } else {
-      highlightedWords = words.map(w =>
-        tokens.includes(w.toLowerCase()) ? `<span style="color:red; font-weight:bold;">${w}</span>` : w
-      );
-      highlightedTags = tags.map((tag, i) =>
-        tokens.includes((words[i] || "").toLowerCase()) ? `<span style="color:red; font-weight:bold;">${tag}</span>` : tag
-      );
+      highlightedWords = words.map(w => tokens.includes(w.toLowerCase()) ? `<span style="color:red; font-weight:bold;">${w}</span>` : w);
+      highlightedTags = tags.map((tag, i) => tokens.includes((words[i] || "").toLowerCase()) ? `<span style="color:red; font-weight:bold;">${tag}</span>` : tag);
     }
 
     const tr = document.createElement("tr");
@@ -241,23 +244,6 @@ window.addEventListener("DOMContentLoaded", () => {
     if (e.key === 'Enter') doSearch();
   });
 });
-  function downloadCSV() {
-  const textVal = encodeURIComponent(document.getElementById('searchInput').value.trim());
-  const playlists = encodeURIComponent(getSelectedPlaylists().join(','));
-  const url = `/download/csv?text=${textVal}&playlists=${playlists}`;
-
-  window.location.href = url; // triggers file download
-}
-
-  function downloadMP3s() {
-  const textVal = encodeURIComponent(document.getElementById('searchInput').value.trim());
-  const playlists = encodeURIComponent(getSelectedPlaylists().join(','));
-  const url = `/download/mp3zip?text=${textVal}&playlists=${playlists}`;
-
-  window.location.href = url; // triggers file download
-}
-
 </script>
-
 </body>
 </html>
