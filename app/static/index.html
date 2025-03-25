@@ -39,6 +39,10 @@
     <strong>Filter by Playlist:</strong>
     <div id="playlistCheckboxes" class="d-flex flex-wrap gap-3 mt-2"></div>
   </div>
+<div class="mb-3 d-flex gap-2">
+  <button class="btn btn-outline-success btn-sm" onclick="downloadCSV()">Download CSV</button>
+  <button class="btn btn-outline-primary btn-sm" onclick="downloadMP3s()">Download MP3s (ZIP)</button>
+</div>
 
   <div class="mb-2 text-muted" id="hitCount">Loading results...</div>
 
@@ -237,6 +241,22 @@ window.addEventListener("DOMContentLoaded", () => {
     if (e.key === 'Enter') doSearch();
   });
 });
+  function downloadCSV() {
+  const textVal = encodeURIComponent(document.getElementById('searchInput').value.trim());
+  const playlists = encodeURIComponent(getSelectedPlaylists().join(','));
+  const url = `/download/csv?text=${textVal}&playlists=${playlists}`;
+
+  window.location.href = url; // triggers file download
+}
+
+  function downloadMP3s() {
+  const textVal = encodeURIComponent(document.getElementById('searchInput').value.trim());
+  const playlists = encodeURIComponent(getSelectedPlaylists().join(','));
+  const url = `/download/mp3zip?text=${textVal}&playlists=${playlists}`;
+
+  window.location.href = url; // triggers file download
+}
+
 </script>
 
 </body>
