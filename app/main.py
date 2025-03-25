@@ -100,8 +100,14 @@ def get_audio(id: str):
         raise HTTPException(status_code=500, detail=f"Audio lookup error: {e}")
 
 @app.get("/download/csv")
-def download_csv(text: str = Query(""), playlists: str = Query("")):
+def download_csv(
+    text: str = Query(""), 
+    playlists: str = Query(""), 
+    page: int = Query(1), 
+    size: int = Query(100)
+):
     try:
+        offset = (page - 1) * size
         where_clauses = []
         query_params = []
 
@@ -130,6 +136,7 @@ def download_csv(text: str = Query(""), playlists: str = Query("")):
         SELECT id, playlist, title, timing, transcript, pos_tags, audio
         FROM forensic_data
         {where_sql}
+        LIMIT {size} OFFSET {offset}
         """
         df = pd.read_sql_query(query, con, params=query_params)
 
@@ -141,8 +148,14 @@ def download_csv(text: str = Query(""), playlists: str = Query("")):
         raise HTTPException(status_code=500, detail=f"Failed to export CSV: {e}")
 
 @app.get("/download/mp3zip")
-def download_mp3_zip(text: str = Query(""), playlists: str = Query("")):
+def download_mp3_zip(
+    text: str = Query(""), 
+    playlists: str = Query(""), 
+    page: int = Query(1), 
+    size: int = Query(100)
+):
     try:
+        offset = (page - 1) * size
         where_clauses = []
         query_params = []
 
@@ -167,7 +180,11 @@ def download_mp3_zip(text: str = Query(""), playlists: str = Query("")):
         if where_clauses:
             where_sql = "WHERE " + " AND ".join(where_clauses)
 
-        query = f"SELECT audio FROM forensic_data {where_sql}"
+        query = f"""
+        SELECT audio FROM forensic_data
+        {where_sql}
+        LIMIT {size} OFFSET {offset}
+        """
         df = pd.read_sql_query(query, con, params=query_params)
         audio_urls = df["audio"].dropna().unique()
 
@@ -180,7 +197,7 @@ def download_mp3_zip(text: str = Query(""), playlists: str = Query("")):
                     if response.ok:
                         zipf.writestr(filename, response.content)
                 except Exception:
-                    continue  # skip failures
+                    continue
 
         zip_buffer.seek(0)
         return StreamingResponse(zip_buffer, media_type="application/zip", headers={"Content-Disposition": "attachment; filename=forensic_mp3s.zip"})
